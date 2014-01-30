@@ -1,0 +1,37 @@
+#http://www.windowsazure.com/en-us/documentation/articles/hdinsight-submit-hadoop-jobs-programmatically/
+
+$subscriptionName = "Azpas300XXXXXXX"       
+$storageAccountName = "XXXXXX"
+$containerName = "XXXXX"     
+
+$clusterName = "XXXX-hdinsight"   
+
+# Define the word count MapReduce job
+$wordCountJobDefinition = New-AzureHDInsightMapReduceJobDefinition -JarFile "wasb:///example/jars/hadoop-examples.jar" -ClassName "wordcount" -Arguments "wasb:///example/data/gutenberg/davinci.txt", "wasb:///example/data/WordCountOutput"     
+
+# Submit the MapReduce job
+Select-AzureSubscription $subscriptionName
+$wordCountJob = Start-AzureHDInsightJob -Cluster $clusterName -JobDefinition $wordCountJobDefinition 
+
+# Wait for the job to complete
+Wait-AzureHDInsightJob -Job $wordCountJob -WaitTimeoutInSeconds 3600 
+
+# Get the job standard error output
+#Get-AzureHDInsightJobOutput -Cluster $clusterName -JobId $wordCountJob.JobId -StandardError 
+
+# Create the storage account context object
+Select-AzureSubscription $subscriptionName
+$storageAccountKey = Get-AzureStorageKey $storageAccountName | %{ $_.Primary }
+$storageContext = New-AzureStorageContext -StorageAccountName $storageAccountName -StorageAccountKey $storageAccountKey  
+
+#Get the blob content
+Get-AzureStorageBlobContent -Container $ContainerName -Blob example/data/WordCountOutput/part-r-00000 -Context $storageContext -Force
+
+cat ./example/data/WordCountOutput/part-r-00000 | findstr "there"
+
+#submit a HIVE JOB
+$querystring = "SELECT * FROM hivesampletable WHERE Country='United Kingdom';"
+
+Select-AzureSubscription -SubscriptionName $subscriptionName
+Use-AzureHDInsightCluster $clusterName
+Invoke-Hive -Query "SELECT * FROM hivesampletable WHERE Country='United Kingdom';"
